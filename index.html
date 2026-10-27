@@ -42,6 +42,7 @@ dialog label{display:block;font-size:13px;color:var(--mu);margin:12px 0 4px}dial
 <div id="login">
   <div class="logo" data-logo>K</div>
   <h1>Kush Collective</h1><div class="mu">Staff portal · enter your PIN</div>
+  <div id="lockbox" class="card hide" style="max-width:380px;text-align:center;color:var(--rd)"></div>
   <div class="pin"><input id="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off"></div>
   <button class="b" onclick="login()">Sign in</button><div id="err" class="neg"></div>
 </div>
@@ -56,25 +57,60 @@ dialog label{display:block;font-size:13px;color:var(--mu);margin:12px 0 4px}dial
 <script>
 const LOGO="https://i0.wp.com/kushcannabiscollective.com/wp-content/uploads/2025/11/kush-logo-V2.png?fit=512%2C512&ssl=1";
 const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-const seed=()=>({pins:{admin:'1234',staff:'0000'},
+const DATA_V=3;
+const seed=()=>({v:DATA_V,pins:{admin:'1234',staff:'0000'},
  items:[['Flower – House Blend','Flower','g',200,0],['Flower – Premium A','Flower','g',200,0],['Flower – Premium B','Flower','g',150,0],
  ['Pre-rolls','Flower','pcs',40,0],['Rolling papers','Accessories','pcs',30,0],['Filter tips','Accessories','pcs',30,0],['Grinders','Accessories','pcs',10,0],
  ['Lighters','Accessories','pcs',20,0],['Water','Refreshments','pcs',48,0],['Cooldrink','Refreshments','pcs',48,0]].map((r,i)=>({id:i+1,name:r[0],cat:r[1],unit:r[2],par:r[3],qty:r[4]})),
  log:[],staff:[],nid:11,drafts:{},lastShort:null});
 let S,U=null,tab='dash',mode='Closing count';
 let storeOK=true,hf='All';
-function loadS(){for(const k of ['kush_v2','kush']){try{const r=localStorage.getItem(k);if(r)return JSON.parse(r)}catch(e){}}
- try{if(window.name.startsWith('KUSH:'))return JSON.parse(window.name.slice(5))}catch(e){}return null}
+function migrate(d){
+ if(!d||typeof d!=='object'||!Array.isArray(d.items))return null;
+ const n0=v=>isNaN(parseFloat(v))?0:parseFloat(v);
+ d.pins=Object.assign({admin:'1234',staff:'0000'},d.pins||{});
+ d.log=Array.isArray(d.log)?d.log:[];d.staff=Array.isArray(d.staff)?d.staff:[];
+ d.drafts=d.drafts&&typeof d.drafts==='object'?d.drafts:{};d.lastShort=d.lastShort||null;d.lastCount=d.lastCount||null;
+ let mx=0;const seen=new Set();
+ d.items.forEach(i=>{if(i.id==null||seen.has(i.id))i.id=null;else{seen.add(i.id);mx=Math.max(mx,n0(i.id))}});
+ d.items.forEach(i=>{if(i.id==null){i.id=++mx;seen.add(i.id)}i.name=String(i.name==null?'Item':i.name);i.cat=i.cat||'Other';i.unit=i.unit||'pcs';i.par=n0(i.par);i.qty=n0(i.qty)});
+ d.nid=Math.max(n0(d.nid),mx+1);
+ d.staff.forEach(x=>{x.name=String(x.name==null?'':x.name);if(!Array.isArray(x.days))x.days=[];while(x.days.length<7)x.days.push(false)});
+ d.log.forEach(l=>{if(l.type==='Stock intake')l.type='Stock received'});
+ d.v=DATA_V;return d}
+let locked=false;
+function loadS(){let raw=null;
+ for(const k of ['kush_v2','kush']){try{const r=localStorage.getItem(k);if(r){raw=r;break}}catch(e){}}
+ if(raw===null){try{if(window.name.startsWith('KUSH:'))raw=window.name.slice(5)}catch(e){}}
+ if(raw===null)return null;
+ try{const o=JSON.parse(raw);
+  if((o.v||0)<DATA_V){try{if(!localStorage.getItem('kush_before_update'))localStorage.setItem('kush_before_update',raw)}catch(e){}}
+  const d=migrate(o);if(d)return d}catch(e){}
+ try{localStorage.setItem('kush_unreadable_copy',raw)}catch(e){}
+ locked=true;return null}
 S=loadS();
-S=S||seed();S.drafts=S.drafts||{};S.lastShort=S.lastShort||null;
-function save(){const j=JSON.stringify(S);let ok=false;
+S=S||seed();
+function save(){if(locked)return;const j=JSON.stringify(S);let ok=false;
  try{localStorage.setItem('kush_v2',j);ok=localStorage.getItem('kush_v2')===j}catch(e){}
  try{window.name='KUSH:'+j}catch(e){}
- storeOK=ok;badge()}
+ storeOK=ok;if(ok)snap();badge()}
+let lastSnap=0;
+function snap(){if(Date.now()-lastSnap<60000)return;lastSnap=Date.now();try{const d=new Date().toISOString().slice(0,10);let a=JSON.parse(localStorage.getItem('kush_snaps')||'[]');
+ if(a.length&&a[a.length-1].d===d)a[a.length-1].j=JSON.stringify(S);else{a.push({d,j:JSON.stringify(S)});while(a.length>7)a.shift()}
+ localStorage.setItem('kush_snaps',JSON.stringify(a))}catch(e){}}
 function badge(){const b=$('sv');if(!b)return;b.textContent=storeOK?'Saved '+hm():'Not saving';b.className=storeOK?'ok':'low'}
 function backup(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='Kush-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click()}
-function restore(f){if(!f)return;const r=new FileReader();r.onload=()=>{let d;try{d=JSON.parse(r.result);if(!d.items)throw 0}catch(e){toast('That file is not a Kush backup',1);return}
- ask('Restore this backup?','All current data is replaced by the backup.',()=>{S=d;S.drafts=S.drafts||{};save();draw();toast('Backup restored')},'Restore')};r.readAsText(f)}
+function restore(f){if(!f)return;const r=new FileReader();r.onload=()=>{let d;try{d=migrate(JSON.parse(r.result));if(!d)throw 0}catch(e){toast('That file is not a Kush backup',1);return}
+ ask('Restore this backup?','All current data is replaced by the backup.',()=>{S=d;locked=false;save();$('lockbox').classList.add('hide');if(U)draw();toast('Backup restored')},'Restore')};r.readAsText(f)}
+function snapList(){let a=[];try{a=JSON.parse(localStorage.getItem('kush_snaps')||'[]')}catch(e){}
+ const out=a.map((x,i)=>({k:i,label:'Automatic snapshot · '+x.d,j:x.j}));
+ try{const b=localStorage.getItem('kush_before_update');if(b)out.push({k:-1,label:'Copy taken before the last update',j:b})}catch(e){}
+ return out.reverse()}
+function restoreSnap(k){const x=snapList().find(y=>y.k===k);let d;try{d=migrate(JSON.parse(x.j))}catch(e){}if(!d){toast('That snapshot is unreadable',1);return}
+ ask('Restore '+x.label+'?','Current data is replaced. Download a backup first if unsure.',()=>{S=d;locked=false;save();draw();toast('Snapshot restored')},'Restore')}
+function showLock(){const b=$('lockbox');b.classList.remove('hide');
+ b.innerHTML='<b>Saved data could not be read.</b><div class="mu" style="margin:6px 0">Nothing has been deleted and saving is paused to protect it. Restore a backup file, or start fresh. A copy of the unreadable data is kept on this device.</div><div class="bar" style="justify-content:center"><label class="b o s">Restore backup file<input type="file" accept=".json" class="hide" onchange="restore(this.files[0])"></label><button class="b d s" onclick="startFresh()">Start fresh</button></div>'}
+function startFresh(){ask('Start fresh?','This begins with empty defaults. The unreadable copy stays on this device.',()=>{locked=false;S=seed();save();$('lockbox').classList.add('hide');toast('Started fresh')},'Start fresh')}
 const $=id=>document.getElementById(id), esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const num=v=>isNaN(parseFloat(v))?0:parseFloat(v);
 
@@ -91,7 +127,8 @@ function form(title,fields,onOk,okText){const d=$('dlg');
 function ask(title,body,onOk,okText){const d=$('dlg');
  d.innerHTML=`<h3>${esc(title)}</h3><p class="mu" style="font-size:14px">${esc(body||'')}</p><div class="bar" style="margin-top:18px"><button class="b" id="fok">${esc(okText||'Yes')}</button><button class="b o" id="fno">Cancel</button></div>`;
  d.showModal();$('fno').onclick=()=>d.close();$('fok').onclick=()=>{d.close();onOk()}}
-function login(){const p=$('pin').value;
+function login(){try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+ const p=$('pin').value;
  if(p===S.pins.admin)U={n:'Admin',admin:1};else if(p===S.pins.staff)U={n:'Staff',admin:0};
  else{$('err').textContent='Wrong PIN';return}
  $('login').classList.add('hide');$('app').classList.remove('hide');$('who').textContent=U.n;$('pin').value='';tab='dash';try{sessionStorage.setItem('kushU',JSON.stringify(U))}catch(e){}draw()}
@@ -118,7 +155,7 @@ function dash(){const L=S.items.filter(low);
  <div class="card"><b>${S.log.length}</b><span class="mu">Log entries</span></div></div>
  <h3 style="margin-top:20px">Needs reorder</h3>
  ${L.length?`<div class="tw"><table><tr><th>Item</th><th>On hand</th><th>Par</th></tr>${L.map(i=>`<tr><td>${esc(i.name)}</td><td class="low">${i.qty} ${i.unit}</td><td>${i.par}</td></tr>`).join('')}</table></div>`:'<p class="mu">Nothing is running low.</p>'}
- <div class="bar"><button class="b" onclick="tab='recv';draw()">Stock received</button><button class="b o" onclick="tab='count';draw()">Count sheet</button><button class="b o" onclick="exportXlsx()">Download Excel</button></div>`}
+ <div class="bar"><button class="b" onclick="tab='recv';draw()">Stock received</button><button class="b o" onclick="tab='count';draw()">Count sheet</button></div>`}
 
 function dk(){return S.drafts[mode]=S.drafts[mode]||{v:{},note:''}}
 const hm=()=>new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'});
@@ -136,7 +173,7 @@ function count(){const d=dk();
  <div class="bar"><input type="text" id="note" placeholder="Note (optional)" value="${esc(d.note||'')}" oninput="dk().note=this.value;save()" style="flex:1;min-width:160px"></div>
  <div class="bar"><button class="b o" onclick="saveDraft()">Save draft</button><button class="b" onclick="completeCount()">Complete stock take</button>
  <button class="b o" onclick="exportCount()">Download sheet</button><button class="b o" onclick="print()">Print</button></div>
- <div class="mu" id="ds">${d.saved?'Draft saved '+d.saved:''}</div>`}
+ <div class="mu" id="ds">${d.saved?'Draft saved '+d.saved:''}</div>${shiftPicker()}`}
 function cin(id,v){dk().v[id]=v;save();calc(id)}
 function calc(id){const i=S.items.find(x=>x.id===id),r=$('c'+id);if(!r||!i)return;const el=$('v'+id);
  if(r.value===''){el.textContent='–';el.className='';return}
@@ -180,15 +217,15 @@ function completeRecv(){const d=S.drafts.recv;
   delete S.drafts.recv;hf='All';save();tab='log';draw();toast(ty+' saved')},'Add to stock')}
 
 function short(){const L=S.items.filter(i=>i.qty<i.par),ls=S.lastShort;
- return `<h3>Short list</h3><p class="mu">Everything below par, and how much to order.</p>
+ return `<h3>Short list</h3>${shiftPicker()}<p class="mu">Everything below par, and how much to order.</p>
  <div class="tw"><table><tr><th>Item</th><th>Category</th><th>On hand</th><th>Par</th><th>Order</th></tr>
  ${L.map(i=>`<tr><td>${esc(i.name)}</td><td>${i.cat}</td><td class="${low(i)?'low':''}">${i.qty} ${i.unit}</td><td>${i.par}</td><td><b>${i.par-i.qty} ${i.unit}</b></td></tr>`).join('')||'<tr><td colspan="5" class="mu">Nothing is short.</td></tr>'}</table></div>
  <h3 style="margin-top:20px">Short in last stock take</h3>
  ${ls?`<p class="mu">${ls.type} · ${ls.d||ls.t} ${ls.tm||''} · Counted by ${esc(ls.p1||'')} and ${esc(ls.p2||'')}</p><div class="tw"><table><tr><th>Item</th><th>System</th><th>Counted</th><th>Short by</th></tr>
  ${ls.rows.map(r=>`<tr><td>${esc(r.item)}</td><td>${r.system}</td><td>${r.counted}</td><td class="neg">${r.short} ${r.unit}</td></tr>`).join('')||'<tr><td colspan="4" class="mu">Nothing was short.</td></tr>'}</table></div>`:'<p class="mu">No stock take completed yet.</p>'}
- <div class="bar">${S.lastCount?'<button class="b" onclick="exportLast()">Download last stock take</button>':''}<button class="b o" onclick="exportXlsx()">Download full Excel</button><button class="b o" onclick="print()">Print</button></div>`}
+ <div class="bar"><button class="b o" onclick="exportShort()">Download short list</button><button class="b o" onclick="print()">Print</button></div>`}
 
-function stock(){return `<h3>Stock</h3><div class="bar">${U.admin?'<button class="b" onclick="itemForm()">Add product</button>':''}<button class="b o" onclick="exportXlsx()">Download Excel</button></div>
+function stock(){return `<h3>Stock</h3><div class="bar">${U.admin?'<button class="b" onclick="itemForm()">Add product</button>':''}<button class="b o" onclick="exportStock()">Download stock sheet</button></div>
  <div class="tw"><table><tr><th>Item</th><th>Category</th><th>On hand</th><th>Par</th><th>Status</th>${U.admin?'<th></th>':''}</tr>
  ${S.items.map(i=>`<tr><td>${esc(i.name)}</td><td>${esc(i.cat)}</td><td>${i.qty} ${esc(i.unit)}</td><td>${i.par}</td><td class="${low(i)?'low':'ok'}">${low(i)?'Low':'OK'}</td>
  ${U.admin?`<td style="white-space:nowrap"><button class="b o s" onclick="itemForm(${i.id})">Edit</button> <button class="b d s" onclick="delItem(${i.id})">Remove</button></td>`:''}</tr>`).join('')||`<tr><td colspan="6" class="mu">No products yet.${U.admin?' Tap Add product.':''}</td></tr>`}</table></div>`}
@@ -220,7 +257,7 @@ function staffForm(k){const s=k==null?null:S.staff[k];
   if(s)s.name=v.name;else S.staff.push({name:v.name,days:Array(7).fill(false)});save();draw();toast('Saved')},s?'Save':'Add')}
 function delStaff(k){const s=S.staff[k];if(!s)return;ask('Remove '+s.name+'?','They are removed from Shifts. Past History keeps their name.',()=>{S.staff.splice(k,1);save();draw();toast('Staff member removed')},'Remove')}
 
-function hist(){const F=S.log.filter(l=>hf==='All'||l.type===hf);return `<h3>History</h3><div class="bar"><select onchange="hf=this.value;draw()">${['All','Stock received','Opening balance','Opening count','Closing count','Adjustment'].map(t=>`<option ${t===hf?'selected':''}>${t}</option>`).join('')}</select><button class="b o" onclick="exportXlsx()">Download Excel</button></div>
+function hist(){const F=S.log.filter(l=>hf==='All'||l.type===hf);return `<h3>History</h3><div class="bar"><select onchange="hf=this.value;draw()">${['All','Stock received','Opening balance','Opening count','Closing count','Adjustment'].map(t=>`<option ${t===hf?'selected':''}>${t}</option>`).join('')}</select><button class="b o" onclick="exportHistory()">Download history</button></div>
  <div class="tw"><table><tr><th>Date</th><th>Time</th><th>Type</th><th>Counted by</th><th>Item</th><th>Before</th><th>After</th><th>Change</th><th>Note</th></tr>
  ${F.slice().reverse().slice(0,300).map(l=>`<tr><td>${l.d||l.t}</td><td>${l.tm||''}</td><td>${l.type}</td><td>${l.p1?esc(l.p1)+' &amp; '+esc(l.p2):''}</td><td>${esc(l.item)}</td><td>${l.before}</td><td>${l.after}</td><td class="${l.delta<0?'neg':l.delta>0?'pos':''}">${l.delta>0?'+':''}${l.delta}</td><td>${esc(l.note||'')}</td></tr>`).join('')||'<tr><td colspan="10" class="mu">No counts yet.</td></tr>'}</table></div>`}
 
@@ -233,7 +270,9 @@ function admin(){return `<h3>Admin</h3>
  <div class="bar"><span>Admin PIN</span><input type="text" id="pa" value="${esc(S.pins.admin)}" maxlength="6" style="width:100px">
  <span>Staff PIN</span><input type="text" id="ps" value="${esc(S.pins.staff)}" maxlength="6" style="width:100px"><button class="b" onclick="savePins()">Save PINs</button></div>
  <h3 style="margin-top:18px;font-size:17px">Backup</h3><p class="mu">Download a backup regularly. Restore it on any device.</p>
- <div class="bar"><button class="b" onclick="backup()">Download backup</button><label class="b o">Restore backup<input type="file" accept=".json" class="hide" onchange="restore(this.files[0])"></label></div>
+ <div class="bar"><button class="b" onclick="backup()">Download backup</button><button class="b o" onclick="exportXlsx()">Download full records (Excel)</button><label class="b o">Restore backup<input type="file" accept=".json" class="hide" onchange="restore(this.files[0])"></label></div>
+ <h3 style="margin-top:18px;font-size:17px">Recover data</h3><p class="mu">The portal keeps automatic daily snapshots on this device.</p>
+ <div class="tw"><table>${snapList().map(x=>`<tr><td>${esc(x.label)}</td><td style="text-align:right"><button class="b o s" onclick="restoreSnap(${x.k})">Restore</button></td></tr>`).join('')||'<tr><td class="mu">No snapshots yet.</td></tr>'}</table></div>
  <h3 style="margin-top:18px;font-size:17px">Danger zone</h3>
  <div class="bar"><button class="b d" onclick="ask('Clear all history?','This cannot be undone. Stock levels stay as they are.',()=>{S.log=[];S.lastShort=null;S.lastCount=null;save();draw();toast('History cleared')},'Clear history')">Clear history</button>
  <button class="b d" onclick="ask('Reset everything?','All products, stock, staff, history and PINs go back to defaults.',()=>{S=seed();save();draw();toast('Reset to defaults')},'Reset all')">Reset all data</button></div>`}
@@ -257,26 +296,51 @@ function mk(title,meta,head,rows,w,flag){
 const head3=()=>[['Date',nowD()],['Time',nowT()]];
 const nm=(a,b)=>[['Counted by',(a||'')+(b?' and '+b:'')]];
 function takeSheet(type,d,tm,p1,p2,note,rows){
- return mk('Kush Collective – '+type,[['Date',d],['Time',tm],['Person 1',p1||'(not entered)'],['Person 2',p2||'(not entered)'],['Note',note||'']],
-  ['Item','Category','Unit','System','Counted','Variance','Result','Par'],
-  rows.map(r=>{const c=r.counted===''||r.counted==null?'':r.counted,v=c===''?'':c-r.system;return [r.item,r.cat,r.unit,r.system,c,v,v===''?'Not counted':v<0?'SHORT '+(-v):v>0?'Over +'+v:'OK',r.par]}),
-  [34,16,9,11,11,11,16,9],r=>String(r[6]).startsWith('SHORT'))}
+ return mk('Kush Collective – '+type,[['Date',d],['Time',tm||''],['Counted by (person 1)',p1||'Not recorded'],['Counted by (person 2)',p2||'Not recorded'],['Note',note||'']],
+  ['Item','Unit','System','Counted','Variance','Result'],
+  rows.map(r=>{const c=r.counted===''||r.counted==null?'':r.counted,v=c===''?'':c-r.system;return [r.item,r.unit,r.system,c,v,v===''?'Not counted':v<0?'SHORT '+(-v):v>0?'Over +'+v:'OK']}),
+  [34,9,11,11,11,16],r=>String(r[5]).startsWith('SHORT'))}
 function save_(wb,name){XLSX.writeFile(wb,name+'-'+new Date().toISOString().slice(0,10)+'.xlsx')}
 function exportCount(){const d=dk(),wb=XLSX.utils.book_new();
  XLSX.utils.book_append_sheet(wb,takeSheet(mode,nowD(),nowT(),(d.p1||'').trim(),(d.p2||'').trim(),d.note,S.items.map(i=>({item:i.name,cat:i.cat,unit:i.unit,par:i.par,system:i.qty,counted:d.v[i.id]===undefined||d.v[i.id]===''?'':num(d.v[i.id])}))),'Stock take');
  save_(wb,'Kush-'+mode.replace(/ /g,'-'))}
-function exportLast(){const c=S.lastCount;if(!c)return;const wb=XLSX.utils.book_new();
- XLSX.utils.book_append_sheet(wb,takeSheet(c.type,c.d,c.tm,c.p1,c.p2,c.note,c.rows),'Stock take');save_(wb,'Kush-'+c.type.replace(/ /g,'-'))}
-function exportXlsx(){const wb=XLSX.utils.book_new(),ex=[['Exported',nowD()+' '+nowT()]],add=(w,n)=>XLSX.utils.book_append_sheet(wb,w,n);
- if(S.lastCount){const c=S.lastCount;add(takeSheet(c.type,c.d,c.tm,c.p1,c.p2,c.note,c.rows),'Last stock take')}
- add(mk('Kush Collective – Stock',ex,['Item','Category','Unit','On hand','Par','Status','Order qty'],S.items.map(i=>[i.name,i.cat,i.unit,i.qty,i.par,low(i)?'LOW':i.qty<i.par?'Below par':'OK',Math.max(0,i.par-i.qty)]),[34,16,9,11,9,13,11],r=>r[5]==='LOW'),'Stock');
- add(mk('Kush Collective – Short list',ex,['Item','Category','Unit','On hand','Par','Order qty'],S.items.filter(i=>i.qty<i.par).map(i=>[i.name,i.cat,i.unit,i.qty,i.par,i.par-i.qty]),[34,16,9,11,9,11]),'Short list');
- add(mk('Kush Collective – History',ex,['Date','Time','Type','Counted by','Item','Before','After','Change','Note','Entered by'],
-  S.log.slice().reverse().map(l=>[l.d||l.t,l.tm||'',l.type,l.p1?l.p1+' and '+l.p2:'',l.item,l.before,l.after,l.delta,l.note||'',l.user]),[14,9,18,26,30,9,9,9,26,12],r=>/count/.test(r[2])&&r[7]<0),'History');
- add(mk('Kush Collective – Shifts',ex,['Name',...DAYS],S.staff.map(s=>[s.name,...s.days.map(x=>x?'Yes':'')]),[22,8,8,8,8,8,8,8]),'Shifts');
- save_(wb,'Kush-Stock')}
+const ex=()=>[['Exported',nowD()+' '+nowT()]];
+const wsStock=()=>mk('Kush Collective – Stock',ex(),['Item','Category','Unit','On hand','Par','Status','Order qty'],S.items.map(i=>[i.name,i.cat,i.unit,i.qty,i.par,low(i)?'LOW':i.qty<i.par?'Below par':'OK',Math.max(0,i.par-i.qty)]),[34,16,9,11,9,13,11],r=>r[5]==='LOW');
+const wsShort=()=>mk('Kush Collective – Short list',ex(),['Item','Category','Unit','On hand','Par','Order qty'],S.items.filter(i=>i.qty<i.par).map(i=>[i.name,i.cat,i.unit,i.qty,i.par,i.par-i.qty]),[34,16,9,11,9,11]);
+const wsHist=()=>mk('Kush Collective – History',ex(),['Date','Time','Type','Counted by','Item','Before','After','Change','Note','Entered by'],
+ S.log.slice().reverse().map(l=>[l.d||l.t,l.tm||'',l.type,l.p1?l.p1+' and '+l.p2:'',l.item,l.before,l.after,l.delta,l.note||'',l.user]),[14,9,18,26,30,9,9,9,26,12],r=>/count/.test(r[2])&&r[7]<0);
+const wsShifts=()=>mk('Kush Collective – Shifts',ex(),['Name',...DAYS],S.staff.map(s=>[s.name,...s.days.map(x=>x?'Yes':'')]),[22,8,8,8,8,8,8,8]);
+function dl(name,parts){const wb=XLSX.utils.book_new();parts.forEach(p=>XLSX.utils.book_append_sheet(wb,p[1](),p[0]));save_(wb,name)}
+const exportStock=()=>dl('Kush-Stock',[['Stock',wsStock]]);
+const exportShort=()=>dl('Kush-Short-list',[['Short list',wsShort]]);
+const exportHistory=()=>dl('Kush-History',[['History',wsHist]]);
+const exportXlsx=()=>dl('Kush-Full-records',[['Stock',wsStock],['Short list',wsShort],['History',wsHist],['Shifts',wsShifts]]);
+
+function sessions(){const out=[];let cur=null;
+ S.log.forEach(l=>{if(l.type!=='Opening count'&&l.type!=='Closing count'){cur=null;return}
+  const k=[l.d||l.t,l.tm||'',l.type,l.p1||'',l.p2||''].join('|');
+  if(!cur||cur.k!==k){cur={k,d:l.d||l.t,tm:l.tm||'',type:l.type,p1:l.p1||'',p2:l.p2||'',note:l.note||'',rows:[]};out.push(cur)}
+  const it=S.items.find(i=>i.name===l.item);cur.rows.push({item:l.item,cat:it?it.cat:'',unit:it?it.unit:'',par:it?it.par:'',system:l.before,counted:l.after})});
+ return out}
+const dayList=()=>[...new Set(sessions().map(x=>x.d))];
+function shiftPicker(){const ss=sessions();
+ if(!ss.length)return '<div class="card" style="margin:14px 0"><div style="font-weight:700">Download shift counts</div><div class="mu">Complete a stock take to download its counts.</div></div>';
+ const days=dayList();
+ return `<div class="card" style="margin:14px 0"><div style="font-weight:700;margin-bottom:4px">Download shift counts</div>
+ <div class="mu" style="margin-bottom:8px">Counts only for the shift you pick. Stock received is not included.</div>
+ <div class="bar" style="margin:0"><select id="shsel" style="flex:1;min-width:200px">${ss.map((x,i)=>`<option value="s${i}">${esc(x.d)} · ${esc(x.tm)} · ${esc(x.type)}${x.p1?' · '+esc(x.p1)+' &amp; '+esc(x.p2):''}</option>`).reverse().join('')}
+ ${days.map((d,i)=>`<option value="d${i}">All counts on ${esc(d)}</option>`).reverse().join('')}</select>
+ <button class="b" onclick="downloadShift()">Download</button></div></div>`}
+function shiftBook(list,name){const wb=XLSX.utils.book_new(),used={};
+ list.forEach(se=>{const n=(se.type+' '+se.tm).replace(/[:\\\/?*\[\]]/g,'.').trim().slice(0,28);let k=n,c=2;while(used[k])k=n+' '+c++;used[k]=1;
+  XLSX.utils.book_append_sheet(wb,takeSheet(se.type,se.d,se.tm,se.p1,se.p2,se.note,se.rows),k)});
+ XLSX.writeFile(wb,name.replace(/[^\w-]+/g,'-')+'.xlsx')}
+function downloadShift(){const v=$('shsel').value,ss=sessions();
+ if(v[0]==='s'){const se=ss[+v.slice(1)];if(se)shiftBook([se],'Kush-'+se.type+'-'+se.d+'-'+se.tm)}
+ else{const d=dayList()[+v.slice(1)];shiftBook(ss.filter(x=>x.d===d),'Kush-Counts-'+d)}}
 setInterval(tickClk,10000);
-addEventListener('storage',e=>{if(e.key!=='kush_v2'||!e.newValue||!U)return;try{S=JSON.parse(e.newValue);S.drafts=S.drafts||{}}catch(x){return}
+if(locked)showLock();
+addEventListener('storage',e=>{if(e.key!=='kush_v2'||!e.newValue||!U)return;try{const d=migrate(JSON.parse(e.newValue));if(!d)return;S=d}catch(x){return}
  const a=document.activeElement;if(a&&/INPUT|SELECT/.test(a.tagName)||$('dlg').open)return;draw()});
 try{const u=sessionStorage.getItem('kushU');if(u){U=JSON.parse(u);$('login').classList.add('hide');$('app').classList.remove('hide');$('who').textContent=U.n;draw()}}catch(e){}
 </script></body></html>
