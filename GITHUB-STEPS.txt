@@ -1,0 +1,13 @@
+PowerShell, from inside the kush-portal folder:
+
+git init
+git add .
+git commit -m "Initial commit: Kush Collective staff portal"
+git branch -M main
+git remote add origin https://github.com/<your-username>/kush-portal.git
+git push -u origin main
+
+Create the empty repo on github.com first (name: kush-portal, set to Private).
+Then: Settings > Pages > Deploy from a branch > main > / (root).
+Note: GitHub Pages on a private repo needs a paid GitHub plan. On a free
+account, use a public repo (with no real data in it) or host on Netlify.
