@@ -3,7 +3,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kush Collective – Staff Portal</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
 :root{--g:#1f7a4d;--gd:#14532d;--gl:#e8f4ec;--bg:#fff;--bg2:#f6faf7;--tx:#16241c;--mu:#667a6e;--bd:#dbe7de;--rd:#c0392b}
 *{box-sizing:border-box}body{margin:0;font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--tx)}
@@ -108,6 +108,9 @@ function count(){const d=dk();
  return `<h3>Count sheet</h3>
  <div class="bar"><select onchange="mode=this.value;draw()">${['Opening count','Closing count'].map(m=>`<option ${m===mode?'selected':''}>${m}</option>`).join('')}</select>
  <span class="mu">Enter what you counted. Save to carry on later, or complete when done.</span></div>
+ <div class="bar"><input list="stf" type="text" placeholder="Counted by (person 1)" value="${esc(d.p1||'')}" oninput="dk().p1=this.value;save()">
+ <input list="stf" type="text" placeholder="Counted by (person 2)" value="${esc(d.p2||'')}" oninput="dk().p2=this.value;save()"></div>
+ <datalist id="stf">${S.staff.map(x=>`<option value="${esc(x.name)}">`).join('')}</datalist>
  <div class="tw"><table><tr><th>Item</th><th>System</th><th>Counted</th><th>Variance</th></tr>
  ${S.items.map(i=>`<tr><td>${esc(i.name)}<div class="mu">${i.cat} · ${i.unit}</div></td><td>${i.qty}</td>
  <td><input type="number" step="any" min="0" id="c${i.id}" value="${d.v[i.id]??''}" oninput="cin(${i.id},this.value)"></td><td id="v${i.id}">–</td></tr>`).join('')}</table></div>
@@ -122,13 +125,17 @@ function calc(id){const i=S.items.find(x=>x.id===id),r=$('c'+id);if(!r)return;co
 const hm=()=>new Date().toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'});
 function saveDraft(){const d=dk();d.saved=hm();save();$('ds').textContent='Draft saved at '+d.saved}
 function completeCount(){const d=dk(),ids=Object.keys(d.v).filter(k=>d.v[k]!=='');
+ const p1=(d.p1||'').trim(),p2=(d.p2||'').trim();
  if(!ids.length){alert('Enter at least one count first.');return}
+ if(!p1||!p2){alert('Enter the names of both people who did this stock take.');return}
+ if(p1.toLowerCase()===p2.toLowerCase()){alert('Person 1 and person 2 must be two different people.');return}
  const miss=S.items.length-ids.length;
  if(!confirm('Complete this '+mode.toLowerCase()+'?'+(miss?'\n'+miss+' uncounted items will stay unchanged.':'')))return;
- const t=new Date().toLocaleString('en-ZA'),sh=[];
+ const t=new Date().toLocaleString('en-ZA'),dd=nowD(),tm=nowT(),sh=[],all=[];
  S.items.forEach(i=>{const r=d.v[i.id];if(r===undefined||r==='')return;const b=i.qty,v=num(r);i.qty=v;
-  S.log.push({t,type:mode,user:U.n,item:i.name,before:b,after:v,delta:v-b,note:d.note});if(v<b)sh.push({item:i.name,unit:i.unit,system:b,counted:v,short:b-v})});
- S.lastShort={t,type:mode,rows:sh};delete S.drafts[mode];save();tab='short';draw()}
+  S.log.push({t,d:dd,tm,type:mode,user:U.n,p1,p2,item:i.name,before:b,after:v,delta:v-b,note:d.note});
+  all.push({item:i.name,cat:i.cat,unit:i.unit,par:i.par,system:b,counted:v});if(v<b)sh.push({item:i.name,unit:i.unit,system:b,counted:v,short:b-v})});
+ S.lastShort={t,d:dd,tm,type:mode,p1,p2,rows:sh};S.lastCount={d:dd,tm,type:mode,p1,p2,note:d.note||'',rows:all};delete S.drafts[mode];save();tab='short';draw()}
 
 function recv(){const d=S.drafts.recv=S.drafts.recv||{v:{},ref:'',sup:''};
  return `<h3>Stock received</h3><p class="mu">Log a delivery. Quantities are added to stock when you complete.</p>
@@ -146,7 +153,7 @@ function completeRecv(){const d=S.drafts.recv,ids=Object.keys(d.v).filter(k=>num
  if(!confirm('Add '+ids.length+' items to stock?'))return;
  const ty=d.type==='Opening balance'?'Opening balance':'Stock received';
  const t=new Date().toLocaleString('en-ZA'),note=[d.sup,d.ref].filter(Boolean).join(' · ');
- ids.forEach(k=>{const i=S.items.find(x=>x.id==k),v=num(d.v[k]),b=i.qty;i.qty=b+v;S.log.push({t,type:ty,user:U.n,item:i.name,before:b,after:i.qty,delta:v,note})});
+ ids.forEach(k=>{const i=S.items.find(x=>x.id==k),v=num(d.v[k]),b=i.qty;i.qty=b+v;S.log.push({t,d:nowD(),tm:nowT(),type:ty,user:U.n,item:i.name,before:b,after:i.qty,delta:v,note})});
  delete S.drafts.recv;save();hf='All';tab='log';draw();alert(ty+' saved. See History for the record.')}
 
 function short(){const L=S.items.filter(i=>i.qty<i.par),ls=S.lastShort;
@@ -154,9 +161,9 @@ function short(){const L=S.items.filter(i=>i.qty<i.par),ls=S.lastShort;
  <div class="tw"><table><tr><th>Item</th><th>Category</th><th>On hand</th><th>Par</th><th>Order</th></tr>
  ${L.map(i=>`<tr><td>${esc(i.name)}</td><td>${i.cat}</td><td class="${low(i)?'low':''}">${i.qty} ${i.unit}</td><td>${i.par}</td><td><b>${i.par-i.qty} ${i.unit}</b></td></tr>`).join('')||'<tr><td colspan="5" class="mu">Nothing is short.</td></tr>'}</table></div>
  <h3 style="margin-top:20px">Short in last stock take</h3>
- ${ls?`<p class="mu">${ls.type} · ${ls.t}</p><div class="tw"><table><tr><th>Item</th><th>System</th><th>Counted</th><th>Short by</th></tr>
+ ${ls?`<p class="mu">${ls.type} · ${ls.d||ls.t} ${ls.tm||''} · Counted by ${esc(ls.p1||'')} and ${esc(ls.p2||'')}</p><div class="tw"><table><tr><th>Item</th><th>System</th><th>Counted</th><th>Short by</th></tr>
  ${ls.rows.map(r=>`<tr><td>${esc(r.item)}</td><td>${r.system}</td><td>${r.counted}</td><td class="neg">${r.short} ${r.unit}</td></tr>`).join('')||'<tr><td colspan="4" class="mu">Nothing was short.</td></tr>'}</table></div>`:'<p class="mu">No stock take completed yet.</p>'}
- <div class="bar"><button class="b" onclick="exportXlsx()">Download Excel</button><button class="b o" onclick="print()">Print</button></div>`}
+ <div class="bar">${S.lastCount?'<button class="b" onclick="exportLast()">Download last stock take</button>':''}<button class="b o" onclick="exportXlsx()">Download full Excel</button><button class="b o" onclick="print()">Print</button></div>`}
 
 function stock(){return `<h3>Stock</h3><div class="bar">${U.admin?'<button class="b" onclick="addItem()">Add product</button>':''}<button class="b o" onclick="exportXlsx()">Download Excel</button></div>
  <div class="tw"><table><tr><th>Item</th><th>Category</th><th>On hand</th><th>Par</th><th>Status</th>${U.admin?'<th></th>':''}</tr>
@@ -176,8 +183,8 @@ function shifts(){return `<h3>Shifts</h3><p class="mu">Tick the days each person
 function addStaff(){const n=prompt('Staff name');if(n){S.staff.push({name:n,days:Array(7).fill(false)});save();draw()}}
 
 function hist(){const F=S.log.filter(l=>hf==='All'||l.type===hf);return `<h3>History</h3><div class="bar"><select onchange="hf=this.value;draw()">${['All','Stock received','Opening balance','Opening count','Closing count'].map(t=>`<option ${t===hf?'selected':''}>${t}</option>`).join('')}</select><button class="b o" onclick="exportXlsx()">Download Excel</button></div>
- <div class="tw"><table><tr><th>When</th><th>Type</th><th>By</th><th>Item</th><th>Before</th><th>After</th><th>Change</th><th>Note</th></tr>
- ${F.slice().reverse().slice(0,300).map(l=>`<tr><td>${l.t}</td><td>${l.type}</td><td>${l.user}</td><td>${esc(l.item)}</td><td>${l.before}</td><td>${l.after}</td><td class="${l.delta<0?'neg':l.delta>0?'pos':''}">${l.delta>0?'+':''}${l.delta}</td><td>${esc(l.note||'')}</td></tr>`).join('')||'<tr><td colspan="8" class="mu">No counts yet.</td></tr>'}</table></div>`}
+ <div class="tw"><table><tr><th>Date</th><th>Time</th><th>Type</th><th>Counted by</th><th>Item</th><th>Before</th><th>After</th><th>Change</th><th>Note</th></tr>
+ ${F.slice().reverse().slice(0,300).map(l=>`<tr><td>${l.d||l.t}</td><td>${l.tm||''}</td><td>${l.type}</td><td>${l.p1?esc(l.p1)+' &amp; '+esc(l.p2):''}</td><td>${esc(l.item)}</td><td>${l.before}</td><td>${l.after}</td><td class="${l.delta<0?'neg':l.delta>0?'pos':''}">${l.delta>0?'+':''}${l.delta}</td><td>${esc(l.note||'')}</td></tr>`).join('')||'<tr><td colspan="10" class="mu">No counts yet.</td></tr>'}</table></div>`}
 
 function admin(){return `<h3>Admin</h3><div class="bar"><span>Admin PIN</span><input type="text" id="pa" value="${S.pins.admin}" maxlength="6" style="width:100px">
  <span>Staff PIN</span><input type="text" id="ps" value="${S.pins.staff}" maxlength="6" style="width:100px"><button class="b" onclick="savePins()">Save PINs</button></div>
@@ -187,15 +194,40 @@ function admin(){return `<h3>Admin</h3><div class="bar"><span>Admin PIN</span><i
  <button class="b d" onclick="if(confirm('Reset everything to defaults?')){S=seed();save();draw()}">Reset all data</button></div>`}
 function savePins(){const a=$('pa').value.trim(),s=$('ps').value.trim();if(a.length<4||s.length<4||a===s){alert('PINs need 4+ digits and must differ.');return}S.pins={admin:a,staff:s};save();alert('PINs saved.')}
 
-function sheet(rows,widths){const w=XLSX.utils.json_to_sheet(rows);w['!cols']=widths.map(x=>({wch:x}));return w}
-function exportXlsx(){const wb=XLSX.utils.book_new();
- XLSX.utils.book_append_sheet(wb,sheet(S.items.map(i=>({Item:i.name,Category:i.cat,Unit:i.unit,'On hand':i.qty,Par:i.par,Status:low(i)?'LOW':'OK'})),[28,14,8,10,8,8]),'Stock');
- XLSX.utils.book_append_sheet(wb,sheet(S.items.filter(i=>i.qty<i.par).map(i=>({Item:i.name,Category:i.cat,Unit:i.unit,'On hand':i.qty,Par:i.par,'Order qty':i.par-i.qty})),[28,14,8,10,8,10]),'Short list');
- XLSX.utils.book_append_sheet(wb,sheet(S.log.map(l=>({When:l.t,Type:l.type,By:l.user,Item:l.item,Before:l.before,After:l.after,Change:l.delta,Note:l.note})),[20,14,8,28,8,8,8,24]),'History');
- XLSX.utils.book_append_sheet(wb,sheet(S.staff.map(s=>Object.assign({Name:s.name},...DAYS.map((d,k)=>({[d]:s.days[k]?'Yes':''})))),[18,6,6,6,6,6,6,6]),'Shifts');
- XLSX.writeFile(wb,'Kush-Stock-'+new Date().toISOString().slice(0,10)+'.xlsx')}
-function exportCount(){const wb=XLSX.utils.book_new();
- const rows=S.items.map(i=>{const c=$('c'+i.id).value;return {Item:i.name,Category:i.cat,Unit:i.unit,System:i.qty,Counted:c,Variance:c===''?'':num(c)-i.qty}});
- XLSX.utils.book_append_sheet(wb,sheet(rows,[28,14,8,10,10,10]),'Count sheet');
- XLSX.writeFile(wb,'Kush-'+mode.replace(' ','-')+'-'+new Date().toISOString().slice(0,10)+'.xlsx')}
+const nowD=()=>new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}),nowT=()=>new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+const BD={top:{style:'thin',color:{rgb:'BFD3C6'}},bottom:{style:'thin',color:{rgb:'BFD3C6'}},left:{style:'thin',color:{rgb:'BFD3C6'}},right:{style:'thin',color:{rgb:'BFD3C6'}}};
+const ST={title:{font:{bold:true,sz:20,color:{rgb:'14532D'}},alignment:{vertical:'center'}},mb:{font:{bold:true,sz:13}},m:{font:{sz:13}},
+ th:{font:{bold:true,sz:13,color:{rgb:'FFFFFF'}},fill:{patternType:'solid',fgColor:{rgb:'1F7A4D'}},alignment:{vertical:'center',wrapText:true},border:BD},
+ td:{font:{sz:13},alignment:{vertical:'center',wrapText:true},border:BD},tdz:{font:{sz:13},fill:{patternType:'solid',fgColor:{rgb:'F3F9F5'}},alignment:{vertical:'center',wrapText:true},border:BD},
+ bad:{font:{sz:13,bold:true,color:{rgb:'C0392B'}},fill:{patternType:'solid',fgColor:{rgb:'FDECEA'}},alignment:{vertical:'center',wrapText:true},border:BD}};
+function mk(title,meta,head,rows,w,flag){
+ const A=[[title],...meta,[],head,...rows],hr=meta.length+2,nc=head.length,ws=XLSX.utils.aoa_to_sheet(A);
+ ws['!cols']=w.map(x=>({wch:x}));ws['!rows']=A.map((_,r)=>({hpt:r===0?34:r===hr?30:24}));
+ ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:nc-1}}];
+ const set=(r,c,st)=>{const a=XLSX.utils.encode_cell({r,c});if(!ws[a])ws[a]={t:'s',v:''};ws[a].s=st};
+ set(0,0,ST.title);meta.forEach((_,i)=>{set(i+1,0,ST.mb);set(i+1,1,ST.m)});
+ head.forEach((_,c)=>set(hr,c,ST.th));
+ rows.forEach((r,i)=>{const st=flag&&flag(r)?ST.bad:(i%2?ST.tdz:ST.td);head.forEach((_,c)=>set(hr+1+i,c,st))});
+ return ws}
+const head3=()=>[['Date',nowD()],['Time',nowT()]];
+const nm=(a,b)=>[['Counted by',(a||'')+(b?' and '+b:'')]];
+function takeSheet(type,d,tm,p1,p2,note,rows){
+ return mk('Kush Collective – '+type,[['Date',d],['Time',tm],['Person 1',p1||'(not entered)'],['Person 2',p2||'(not entered)'],['Note',note||'']],
+  ['Item','Category','Unit','System','Counted','Variance','Result','Par'],
+  rows.map(r=>{const c=r.counted===''||r.counted==null?'':r.counted,v=c===''?'':c-r.system;return [r.item,r.cat,r.unit,r.system,c,v,v===''?'Not counted':v<0?'SHORT '+(-v):v>0?'Over +'+v:'OK',r.par]}),
+  [34,16,9,11,11,11,16,9],r=>String(r[6]).startsWith('SHORT'))}
+function save_(wb,name){XLSX.writeFile(wb,name+'-'+new Date().toISOString().slice(0,10)+'.xlsx')}
+function exportCount(){const d=dk(),wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,takeSheet(mode,nowD(),nowT(),(d.p1||'').trim(),(d.p2||'').trim(),d.note,S.items.map(i=>({item:i.name,cat:i.cat,unit:i.unit,par:i.par,system:i.qty,counted:d.v[i.id]===undefined||d.v[i.id]===''?'':num(d.v[i.id])}))),'Stock take');
+ save_(wb,'Kush-'+mode.replace(/ /g,'-'))}
+function exportLast(){const c=S.lastCount;if(!c)return;const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,takeSheet(c.type,c.d,c.tm,c.p1,c.p2,c.note,c.rows),'Stock take');save_(wb,'Kush-'+c.type.replace(/ /g,'-'))}
+function exportXlsx(){const wb=XLSX.utils.book_new(),ex=[['Exported',nowD()+' '+nowT()]],add=(w,n)=>XLSX.utils.book_append_sheet(wb,w,n);
+ if(S.lastCount){const c=S.lastCount;add(takeSheet(c.type,c.d,c.tm,c.p1,c.p2,c.note,c.rows),'Last stock take')}
+ add(mk('Kush Collective – Stock',ex,['Item','Category','Unit','On hand','Par','Status','Order qty'],S.items.map(i=>[i.name,i.cat,i.unit,i.qty,i.par,low(i)?'LOW':i.qty<i.par?'Below par':'OK',Math.max(0,i.par-i.qty)]),[34,16,9,11,9,13,11],r=>r[5]==='LOW'),'Stock');
+ add(mk('Kush Collective – Short list',ex,['Item','Category','Unit','On hand','Par','Order qty'],S.items.filter(i=>i.qty<i.par).map(i=>[i.name,i.cat,i.unit,i.qty,i.par,i.par-i.qty]),[34,16,9,11,9,11]),'Short list');
+ add(mk('Kush Collective – History',ex,['Date','Time','Type','Counted by','Item','Before','After','Change','Note','Entered by'],
+  S.log.slice().reverse().map(l=>[l.d||l.t,l.tm||'',l.type,l.p1?l.p1+' and '+l.p2:'',l.item,l.before,l.after,l.delta,l.note||'',l.user]),[14,9,18,26,30,9,9,9,26,12],r=>/count/.test(r[2])&&r[7]<0),'History');
+ add(mk('Kush Collective – Shifts',ex,['Name',...DAYS],S.staff.map(s=>[s.name,...s.days.map(x=>x?'Yes':'')]),[22,8,8,8,8,8,8,8]),'Shifts');
+ save_(wb,'Kush-Stock')}
 </script></body></html>
