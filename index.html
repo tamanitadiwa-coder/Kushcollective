@@ -7,6 +7,7 @@
 <title>Kush Collective – Stock</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="kush-config.js"></script>
 <style>
 :root{--bg:#10291F;--sf:#19372A;--sf2:#20423A;--ln:rgba(255,255,255,.08);--ln2:rgba(255,255,255,.17);--tx:#FFFFFF;--tx2:#D3DDD7;--mu:#8C9F94;--sg:#91A99A;--sh:#D99A86;--ov:#D3C292}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
@@ -192,6 +193,11 @@ const SCHED_SEED=[
 function defaultSched(){return{stores:SCHED_SEED.map((x,k)=>({id:k+1,name:x[0],days:Object.fromEntries(DAYS.map(d=>[d,(x[1][d]||'').split(',').filter(Boolean).map(t=>{const m=t.trim().split(/[ -]/);return{p:m[0],s:m[1],e:m[2]}})]))}))}}
 const seed=()=>migrate({pins:{admin:'1234',staff:''},items:[],log:[],staff:[],nid:1,drafts:{}});
 let S,U=null,tab='ov',storeOK=true,locked=false;
+// Lightspeed connection status (public, non-sensitive). Managed on lightspeed.html.
+let LSP;
+function lsPublic(){const a=(window.KUSH_LS_API||'').replace(/\/+$/,'');if(!a||LSP!==undefined)return;LSP=null;
+ fetch(a+'/public-status').then(r=>r.json()).then(d=>{LSP=d;if(U&&(tab==='ov'||tab==='imp')&&!IMP)draw()}).catch(()=>{})}
+const lsLive=()=>LSP&&LSP.state==='connected';
 let tf='all',rv=false,mf='All',ms='All',mq='',vf='Not reviewed',hv=null,IMP=null,ik='sales',pq='';
 
 // ---------- movement types ----------
@@ -331,6 +337,7 @@ function draw(){
  $('nav').innerHTML=NAV.map(t=>`<button class="${cur===t[0]?'on':''}" onclick="go('${t[0]}')">${t[1]}</button>`).join('');
  $('lkA').classList.toggle('hide',!U.admin);
  $('lkS').classList.toggle('on',tab==='shifts'||tab==='sched');$('lkA').classList.toggle('on',tab==='admin'||tab==='prod');
+ lsPublic();
  const V={ov,take,mv,recv,imp,var:vars,hist,shifts,sched,admin,prod};
  $('main').innerHTML=(storeOK?'':'<div class="card neg" style="margin-bottom:24px">This device is blocking saving, so changes will be lost when the page closes. Open the portal in Chrome or Safari, or download a backup under Admin.</div>')+V[tab]();
  if(tab==='take'&&!rv&&S.drafts.take){applyF();upd()}
@@ -359,7 +366,7 @@ function ov(){const t=S.drafts.take,last=S.takes[S.takes.length-1],open=S.vars.f
   <div class="stat"><div class="eb">Products</div><b>${S.items.length}</b><small>In the catalogue</small></div>
   <div class="stat"><div class="eb">Requires attention</div><b>${att}</b><small>${open.length} unreviewed variance${open.length===1?'':'s'}</small></div>
   <div class="stat"><div class="eb">Stocktake</div><b class="t">${t?'In progress':last?'Complete':'Not started'}</b><small>${t?cn+' of '+S.items.length+' counted':last?esc(last.type)+' · '+esc(last.d):'No stocktakes yet'}</small></div>
-  <div class="stat"><div class="eb">Lightspeed</div><b class="t">${S.imp.last?'Imported':'Not synced'}</b><small>${S.imp.last?'Last import '+esc(ago(S.imp.last)):'Import reports under Stock movements'}</small></div></div>
+  <div class="stat"><div class="eb">Lightspeed</div><b class="t">${lsLive()?'Connected':S.imp.last?'Imported':'Not synced'}</b><small>${lsLive()?(LSP.mode==='mock'?'Test mode · ':'')+(LSP.last_sync_at?'Last sync '+esc(ago(LSP.last_sync_at)):'Not synced yet'):S.imp.last?'Last import '+esc(ago(S.imp.last)):'Import reports under Stock movements'}</small></div></div>
  <h2>Today’s counts</h2>${dn('Opening count')}${dn('Closing count')}
  <div class="bar" style="margin-top:22px"><button class="b" onclick="go('take')">${t?'Continue stocktake':'Start stocktake'}</button></div>
  <h2>Requires attention</h2>${A.length?A.join('')+(att>A.length?`<div class="bar"><button class="b o s" onclick="go('var')">View all variances</button></div>`:''):es('Everything is in order','No open variances and no products below par.')}
@@ -505,7 +512,7 @@ function imp(){const K=IK[ik];let body='';
    ${R.un.length?`<p class="mu" style="margin-top:16px">Not matched: ${[...new Set(R.un)].slice(0,20).map(esc).join(', ')}${new Set(R.un).size>20?'…':''}. Add the SKU to these products under Admin › Products, or import the Lightspeed product list first.</p>`:''}
    <div class="bar"><button class="b" onclick="doImp()" ${R.ok.length?'':'disabled'}>Import ${R.ok.length} row${R.ok.length===1?'':'s'}</button></div>`}}
  return `<button class="back" onclick="IMP=null;go('mv')">← Stock movements</button>`+pt('Lightspeed','Import from Lightspeed','Export a report from Lightspeed Retail as CSV or Excel and bring it in here. Rows already imported are recognised and skipped, so the same file can be imported twice safely.')+
- `<div class="card"><div class="li" style="border:0;padding:0"><div><div class="eb">Live connection</div><div style="margin-top:6px">Not connected</div><small>An automatic connection needs a secure server to hold the Lightspeed access token, so the token never sits in the browser. Until that is set up, use file imports.</small></div>
+ `<div class="card"><div class="li" style="border:0;padding:0"><div><div class="eb">Live connection</div><div style="margin-top:6px">${lsLive()?'Connected'+(LSP.mode==='mock'?' (test mode)':''):'Not connected'}</div><small>${lsLive()?'Automatic sync of sales and deliveries is the next stage. File imports keep working meanwhile.':'A manager connects Lightspeed securely under Admin › Lightspeed connection. Until then, use file imports.'}</small></div>
  <div class="r"><div class="eb">Last import</div><div style="margin-top:6px">${S.imp.last?esc(ago(S.imp.last)):'Never'}</div></div></div></div>
  <h2>What are you importing?</h2><div class="chips">${Object.keys(IK).map(k=>`<button class="${ik===k?'on':''}" onclick="ik='${k}';if(IMP){IMP.map=guess(IMP.head);IMP.res=null}draw()">${IK[k].l}</button>`).join('')}</div>
  <p class="mu">${K.about}</p>
@@ -701,7 +708,8 @@ function shareCode(k){const s=S.staff[k],t='Hi '+s.name+', your Kush Collective 
 
 // ---------- admin ----------
 function admin(){return pt('Admin','Settings')+
- `<h2 style="margin-top:0">Products</h2><p class="mu">${S.items.length} products · ${S.items.filter(i=>i.sku).length} with a SKU</p><div class="bar"><button class="b" onclick="go('prod')">Manage products</button><button class="b o" onclick="ik='prod';IMP=null;go('imp')">Import from Lightspeed</button></div>
+ `<h2 style="margin-top:0">Lightspeed connection</h2><p class="mu">Managers connect, reconnect or disconnect Lightspeed on a separate secure page with their own passcode.</p><div class="bar"><a class="b o" href="lightspeed.html">Open Lightspeed connection</a></div>
+ <h2>Products</h2><p class="mu">${S.items.length} products · ${S.items.filter(i=>i.sku).length} with a SKU</p><div class="bar"><button class="b" onclick="go('prod')">Manage products</button><button class="b o" onclick="ik='prod';IMP=null;go('imp')">Import from Lightspeed</button></div>
  <h2>Staff and codes</h2><p class="mu">Each person signs in with their own code. Their name is recorded on everything they do.</p>
  <div class="tw"><table><tr><th>Name</th><th>Code</th><th></th></tr>${S.staff.map((s,k)=>`<tr><td>${esc(s.name)}</td><td style="letter-spacing:3px">${esc(s.code)}</td><td class="n nw"><button class="b s" onclick="shareCode(${k})">Share</button> <button class="b o s" onclick="staffForm(${k})">Edit</button> <button class="b d s" onclick="delStaff(${k})">Remove</button></td></tr>`).join('')||'<tr><td colspan="3" class="mu">No staff added yet.</td></tr>'}</table></div>
  <div class="bar"><button class="b" onclick="staffForm()">Add staff member</button><button class="b o" onclick="tab='sched';draw()">Edit schedule</button><button class="b o" onclick="exportRota()">Download rota</button></div>

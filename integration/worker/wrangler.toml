@@ -1,0 +1,24 @@
+name = "kush-lightspeed"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[vars]
+# Mock mode stays on until a manager-approved Lightspeed app is configured.
+# The deploy workflow switches it to "false" when the repo variable LIGHTSPEED_MODE is "live".
+MOCK_LIGHTSPEED = "true"
+ALLOWED_ORIGINS = "https://tamanitadiwa-coder.github.io"
+APP_URL = "https://tamanitadiwa-coder.github.io/Kushcollective/lightspeed.html"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "kush-lightspeed"
+# Filled in automatically by the deploy workflow.
+database_id = "00000000-0000-0000-0000-000000000000"
+
+# Secrets (never in this file):
+#   TOKEN_KEY         encrypts tokens at rest. Generated once by the deploy workflow.
+#   SESSION_KEY       signs manager sessions. Generated once by the deploy workflow.
+#   MANAGER_PASSCODE  from the GitHub secret KUSH_MANAGER_PASSCODE.
+#   LS_CLIENT_ID      from the GitHub secret LIGHTSPEED_CLIENT_ID.
+#   LS_CLIENT_SECRET  from the GitHub secret LIGHTSPEED_CLIENT_SECRET.

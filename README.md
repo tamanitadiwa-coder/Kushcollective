@@ -17,7 +17,7 @@ One HTML file. No build step, no server, no dependencies to install.
 
 Expected stock = opening + received − sold − removed ± adjustments. Variance = counted − expected.
 
-Live Lightspeed sync is not built yet. It needs a small secure backend to hold the access token, because tokens must never be in browser code.
+**Lightspeed connection:** a manager-controlled, read-only OAuth connection lives in `integration/` (Cloudflare Worker, free tier) with its own manager page, `lightspeed.html`. It runs in test mode until the Lightspeed app is registered. See `integration/README.md`. Automatic syncing of sales and deliveries is the next stage.
 
 ## Default PINs
 
@@ -59,7 +59,7 @@ All in `index.html`:
 
 ## Roadmap
 
-- Secure backend with live Lightspeed sync (read-only token)
+- Automatic sync of products, sales and deliveries from Lightspeed
 - Shared stock across devices
 - Per-staff logins
 - Sales and usage tracking

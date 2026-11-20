@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#10291F">
+<meta name="robots" content="noindex">
+<title>Kush Collective – Lightspeed connection</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<script src="kush-config.js"></script>
+<style>
+:root{--bg:#10291F;--sf:#19372A;--ln:rgba(255,255,255,.08);--ln2:rgba(255,255,255,.17);--tx:#FFFFFF;--tx2:#D3DDD7;--mu:#8C9F94;--sg:#91A99A;--sh:#D99A86;--ov:#D3C292}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:400 15px/1.5 'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;font-weight:400;margin:0}
+.eb{font:500 11px/1.4 'DM Sans',sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--sg)}.mu{color:var(--mu);font-size:13px}.hide{display:none!important}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 32px;border-bottom:1px solid var(--ln)}
+.wm{font:400 18px Fraunces,serif}.lk{background:none;border:0;color:var(--tx2);padding:8px 12px;border-radius:8px;cursor:pointer;font:inherit;font-size:14px;text-decoration:none}.lk:hover{background:var(--sf);color:var(--tx)}
+main{max-width:860px;margin:0 auto;padding:48px 32px 96px;animation:fi .28s ease}@keyframes fi{from{opacity:0}to{opacity:1}}
+.pt{margin-bottom:36px}.pt h1{font-size:40px;font-weight:300;margin-top:10px;line-height:1.1}.pt p{color:var(--mu);margin:10px 0 0;max-width:600px}
+h2{font-size:22px;margin:48px 0 14px}
+.b{height:44px;padding:0 20px;border-radius:10px;border:1px solid var(--tx);background:var(--tx);color:var(--bg);font:500 14px 'DM Sans',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:opacity .2s}
+.b:hover{opacity:.88}.b.o{background:transparent;color:var(--tx);border-color:var(--ln2)}.b.d{background:transparent;color:var(--sh);border-color:rgba(217,154,134,.38)}.b[disabled]{opacity:.35;pointer-events:none}
+.bar{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0}
+input{font:inherit;color:var(--tx);background:var(--sf);border:1px solid var(--ln2);border-radius:10px;height:48px;padding:0 16px;outline:none;width:100%;max-width:320px}input:focus{border-color:var(--sg)}
+.row{display:flex;justify-content:space-between;gap:20px;padding:16px 0;border-bottom:1px solid var(--ln)}.row:first-child{border-top:1px solid var(--ln)}.row>span:first-child{color:var(--mu)}.row>span:last-child{text-align:right}
+.pill{display:inline-block;font-size:12px;padding:2px 10px;border-radius:999px;border:1px solid var(--ln2);color:var(--tx2);white-space:nowrap}
+.pill.ok{color:var(--sg);border-color:rgba(145,169,154,.45)}.pill.sh{color:var(--sh);border-color:rgba(217,154,134,.45)}.pill.ov{color:var(--ov);border-color:rgba(211,194,146,.45)}
+.state{display:flex;align-items:center;gap:14px;padding:26px 0;border-top:1px solid var(--ln);border-bottom:1px solid var(--ln)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--mu);flex:none}.dot.ok{background:var(--sg);box-shadow:0 0 0 5px rgba(145,169,154,.15)}.dot.sh{background:var(--sh)}
+.state b{font:300 26px Fraunces,serif;display:block}
+.note{border:1px solid var(--ln2);border-radius:12px;padding:16px 18px;margin:0 0 28px;font-size:14px;color:var(--tx2)}.note.ok{border-color:rgba(145,169,154,.5)}.note.sh{border-color:rgba(217,154,134,.5)}
+.ev{display:flex;gap:16px;padding:14px 0;border-bottom:1px solid var(--ln);font-size:14px}.ev .t{color:var(--mu);width:130px;flex:none;font-size:13px}.ev small{display:block;color:var(--mu)}
+dialog{background:var(--sf);color:var(--tx);border:1px solid var(--ln2);border-radius:16px;padding:30px;max-width:440px;width:92%}dialog::backdrop{background:rgba(4,14,9,.62)}dialog p{color:var(--tx2);font-size:14px}
+.es{text-align:center;padding:60px 20px;border-top:1px solid var(--ln);border-bottom:1px solid var(--ln)}.es .m{width:44px;height:44px;border-radius:50%;border:1px solid var(--sg);margin:0 auto 20px}.es p{color:var(--mu);max-width:440px;margin:8px auto 0}
+@media(max-width:640px){header{padding:14px 18px}main{padding:32px 18px 80px}.pt h1{font-size:32px}.ev{flex-direction:column;gap:2px}.ev .t{width:auto}}
+</style></head><body>
+<header><div class="wm">Kush Collective</div><div><a class="lk" href="./">Back to Kush</a><button class="lk hide" id="so" onclick="signOut()">Sign out</button></div></header>
+<main id="m"></main>
+<dialog id="dlg"></dialog>
+<script>
+const API=(window.KUSH_LS_API||'').replace(/\/+$/,'');
+const $=id=>document.getElementById(id),esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let TOK=null,ST=null,EV=[],NOTE=null,busy=false;
+try{TOK=sessionStorage.getItem('kushLS')}catch(e){}
+const head=(h,p)=>`<div class="pt"><div class="eb">Manager · Lightspeed</div><h1>${h}</h1>${p?`<p>${p}</p>`:''}</div>`;
+const when=s=>{if(!s)return '—';const d=new Date(s);return isNaN(d)?'—':d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+' · '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})};
+const RET={connected:['ok','Lightspeed is connected.'],denied:['sh','Access was declined in Lightspeed. Nothing was connected.'],invalid_state:['sh','That approval link had expired or was already used. Start again with Connect.'],
+ token_exchange:['sh','Lightspeed approved, but the connection could not be completed. Try again.'],network:['sh','Lightspeed could not be reached. Check the internet connection and try again.'],invalid_callback:['sh','Lightspeed returned an incomplete response. Try again.'],error:['sh','Lightspeed returned an error. Try again.']};
+const EVL={connect_started:'Connection started',connected:'Connected',connect_denied:'Access declined',connect_rejected:'Approval rejected',connect_failed:'Connection failed',token_refreshed:'Access renewed automatically',
+ reauth_required:'Reconnect required',check_ok:'Connection checked',check_failed:'Check failed',disconnected:'Disconnected',manager_signin_failed:'Wrong manager passcode',server_error:'Service error'};
+
+// result of returning from Lightspeed
+(function(){const q=new URLSearchParams(location.search),r=q.get('ls');if(r){NOTE=RET[r]||RET.error;history.replaceState(null,'',location.pathname)}})();
+
+async function api(path,method){const r=await fetch(API+path,{method:method||'GET',headers:TOK?{authorization:'Bearer '+TOK}:{}});
+ const d=await r.json().catch(()=>({error:'Unexpected response from the connection service.'}));
+ if(r.status===401&&path!=='/session'){signOut(true);throw new Error('Your manager session ended. Sign in again.')}
+ if(!r.ok&&!d.status)throw new Error(d.error||('Error '+r.status));return d}
+
+function render(){const m=$('m');$('so').classList.toggle('hide',!TOK);
+ if(!API){m.innerHTML=head('Lightspeed connection')+`<div class="es"><div class="m"></div><h3>Not set up yet</h3><p>The secure connection service has not been deployed. Once it is, managers connect Lightspeed here. Staff never see this page's controls.</p></div>`;return}
+ if(!TOK){m.innerHTML=head('Manager sign-in','Only managers can view or change the Lightspeed connection. Your Lightspeed password is never entered here.')+
+  `<form onsubmit="event.preventDefault();signIn()"><input id="pc" type="password" autocomplete="current-password" placeholder="Manager passcode"><div class="bar"><button class="b" id="sb">Sign in</button></div><div id="er" class="mu" style="color:var(--sh)"></div></form>`;setTimeout(()=>$('pc')&&$('pc').focus(),50);return}
+ if(!ST){m.innerHTML=head('Lightspeed connection')+'<p class="mu">Loading…</p>';return}
+ const s=ST,cn=s.state==='connected',re=s.state==='reauth_required';
+ const dot=cn?(s.missing.length||s.last_error?'ov':'ok'):re?'sh':'';
+ const label=cn?(s.missing.length?'Connected, permissions missing':s.last_error?'Connected, last check failed':'Connected'):re?'Reconnect required':'Not connected';
+ m.innerHTML=head('Lightspeed connection','Kush reads products, sales, stock levels and deliveries from Lightspeed. It never changes anything in Lightspeed.')+
+ (NOTE?`<div class="note ${NOTE[0]}">${esc(NOTE[1])}</div>`:'')+
+ (s.mode==='mock'?`<div class="note ov"><b>Test mode.</b> This connects to a built-in imitation of Lightspeed with test data, not the real store. Live mode is switched on once the Lightspeed app is registered.</div>`:'')+
+ `<div class="state"><span class="dot ${dot==='ov'?'':dot}" style="${dot==='ov'?'background:var(--ov)':''}"></span><div><b>${label}</b><span class="mu">${cn?'Since '+when(s.connected_at):re?'Lightspeed no longer accepts the saved access. A manager needs to approve it again.':'Connect to let Kush read from Lightspeed.'}</span></div></div>
+ ${s.last_error?`<div class="note sh" style="margin-top:18px">${esc(s.last_error)}</div>`:''}
+ ${s.missing.length?`<div class="note ov" style="margin-top:18px">Lightspeed did not grant: ${s.missing.map(esc).join(', ')}. Reconnect and approve all permissions.</div>`:''}
+ <div class="bar">${cn?`<button class="b o" onclick="check()" ${busy?'disabled':''}>Check connection</button><button class="b o" onclick="connect()" ${busy?'disabled':''}>Reconnect</button><button class="b d" onclick="askDisconnect()" ${busy?'disabled':''}>Disconnect</button>`
+  :re?`<button class="b" onclick="connect()" ${busy?'disabled':''}>Reconnect Lightspeed</button><button class="b d" onclick="askDisconnect()">Disconnect</button>`
+  :`<button class="b" onclick="connect()" ${busy?'disabled':''} ${s.configured?'':'disabled'}>Connect Lightspeed</button>`}</div>
+ ${!s.configured?'<p class="mu">The Lightspeed app is not registered yet, so connecting is not available.</p>':''}
+ <h2>Details</h2>
+ <div class="row"><span>Retailer</span><span>${esc(s.retailer||'—')}</span></div>
+ <div class="row"><span>Store address</span><span>${s.mode==='mock'&&s.domain_prefix?'Test store (not real)':s.domain_prefix?esc(s.domain_prefix)+'.retail.lightspeed.app':'—'}</span></div>
+ <div class="row"><span>Outlets</span><span>${s.outlets.length?s.outlets.map(o=>esc(o.name)).join('<br>'):'—'}</span></div>
+ <div class="row"><span>Last successful sync</span><span>${s.last_sync_at?when(s.last_sync_at):'Not synced yet'}</span></div>
+ <div class="row"><span>Last checked</span><span>${when(s.last_check_at)}</span></div>
+ <div class="row"><span>Access renewed</span><span>${when(s.last_refresh_at)}</span></div>
+ <h2>Permissions requested</h2><p class="mu" style="margin-top:-6px">Read-only. Kush cannot take payments, change prices, edit products, change sales or adjust stock in Lightspeed.</p>
+ ${s.permissions.map(p=>`<div class="row"><span>${esc(p.label)}<br><small class="mu">${esc(p.scope)}</small></span><span>${p.granted===null?'<span class="pill">Requested</span>':p.granted?'<span class="pill ok">Granted</span>':'<span class="pill sh">Not granted</span>'}</span></div>`).join('')}
+ <h2>Recent activity</h2>${EV.length?EV.map(e=>`<div class="ev"><span class="t">${when(e.at)}</span><span>${esc(EVL[e.event]||e.event)}${e.detail?'<small>'+esc(e.detail)+'</small>':''}</span></div>`).join(''):'<p class="mu">No activity yet.</p>'}
+ <p class="mu" style="margin-top:28px">Disconnecting deletes the access Kush holds. To remove Kush's access completely, a manager can also remove the app in Lightspeed.</p>`}
+
+async function load(){try{ST=await api('/status');EV=(await api('/audit')).events||[]}catch(e){NOTE=['sh',e.message]}render()}
+async function signIn(){const p=$('pc').value;if(!p)return;$('sb').disabled=true;
+ try{const r=await fetch(API+'/session',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({passcode:p})});const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.error||'Sign-in failed');TOK=d.token;try{sessionStorage.setItem('kushLS',TOK)}catch(e){}render();load()}
+ catch(e){$('er').textContent=e.message.includes('fetch')?'The connection service could not be reached.':e.message;$('sb').disabled=false}}
+function signOut(quiet){TOK=null;ST=null;try{sessionStorage.removeItem('kushLS')}catch(e){}if(!quiet)NOTE=null;render()}
+async function connect(){busy=true;render();try{const d=await api('/oauth/start','POST');location.href=d.url}catch(e){busy=false;NOTE=['sh',e.message];render()}}
+async function check(){busy=true;NOTE=null;render();try{const d=await api('/check','POST');ST=d.status;NOTE=d.ok?['ok','Connection is working.']:['sh',d.error];EV=(await api('/audit')).events||[]}catch(e){NOTE=['sh',e.message]}busy=false;render()}
+function askDisconnect(){const d=$('dlg');d.innerHTML=`<h3 style="font:300 24px Fraunces,serif">Disconnect Lightspeed?</h3><p>Kush stops reading from Lightspeed and deletes the access it holds. Stock records already in Kush are not affected. You can reconnect at any time.</p><div class="bar"><button class="b d" id="y">Disconnect</button><button class="b o" id="n">Cancel</button></div>`;
+ d.showModal();$('n').onclick=()=>d.close();$('y').onclick=async()=>{d.close();busy=true;render();try{ST=await api('/disconnect','POST');NOTE=['ok','Disconnected.'];EV=(await api('/audit')).events||[]}catch(e){NOTE=['sh',e.message]}busy=false;render()}}
+render();if(API&&TOK)load();
+</script></body></html>
