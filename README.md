@@ -5,22 +5,19 @@ One HTML file. No build step, no server, no dependencies to install.
 
 ## Features
 
-- **PIN login** with admin and staff roles
-- **Stock received**: log deliveries or an opening balance, with supplier and invoice reference
-- **Count sheet**: opening and closing counts with live variance, save as draft, complete when done
-- **Short list**: everything below par with the quantity to order, plus what was short in the last stock take
-- **Stock**: product list with par levels and low-stock flags (admin can add, edit and delete)
-- **Shifts**: weekly schedule grid
-- **History**: every receipt and count, who did it, when, before and after. Filterable
-- **Excel export**: Stock, Short list, History and Shifts sheets in one `.xlsx`
-- **Backup and restore**: download all data as JSON and restore it on any device
-- **Autosave**: drafts and entries save as you type. The top bar shows "Saved" or "Not saving"
+- **Overview**: products, items requiring attention, stocktake status, last Lightspeed import, recent movements
+- **Stocktake**: iPad-first counting with large steppers, search by name or barcode scan, filters for short, over and matching, autosaved drafts you can continue later, and a review step that requires an explanation for every difference
+- **Stock movements**: one ledger for sales, refunds, deliveries, removals, adjustments and corrections. Each entry is marked Lightspeed or Manual. Entries are never edited; mistakes are reversed with a correction
+- **Lightspeed import**: import Lightspeed Retail (X-Series) report exports (CSV or Excel) for products, sales and deliveries. Rows already imported are detected and skipped. Voided and cancelled rows are skipped; negative sale quantities are refunds
+- **Variances**: every difference with expected, actual, difference, date, who counted, explanation and review status. Never deleted
+- **History**: every completed stocktake and import, viewable and downloadable
+- **Shifts**: weekly rota per store
+- **PIN login** with admin and per-staff codes
+- **Excel export** and **JSON backup and restore**
 
-## How it works
+Expected stock = opening + received − sold − removed ± adjustments. Variance = counted − expected.
 
-1. **Receive stock.** Use *Opening balance* for what is already on the shelf, then *Delivery* for every new delivery.
-2. **Count at shift.** Do an opening or closing count. Stock updates to the counted figure and any difference is logged.
-3. **Check the short list.** See what to reorder and what went missing.
+Live Lightspeed sync is not built yet. It needs a small secure backend to hold the access token, because tokens must never be in browser code.
 
 ## Default PINs
 
@@ -62,7 +59,8 @@ All in `index.html`:
 
 ## Roadmap
 
-- Shared stock across devices (Firebase or similar)
+- Secure backend with live Lightspeed sync (read-only token)
+- Shared stock across devices
 - Per-staff logins
 - Sales and usage tracking
 - Low-stock alerts
